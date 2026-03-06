@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Compromissos — Assistente</title>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;600&display=swap" rel="stylesheet"/>
+  <style>
+    :root {
+      --bg: #050a0f;
+      --surface: #0a1520;
+      --border: #0d2a3f;
+      --accent: #00d4ff;
+      --accent2: #00ff88;
+      --accent3: #ff4466;
+      --accent4: #ffaa00;
+      --text: #c8e8f5;
+      --muted: #3a6070;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: var(--bg);
+      font-family: 'Rajdhani', sans-serif;
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(0,212,255,0.02) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,212,255,0.02) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .container {
+      position: relative;
+      z-index: 1;
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 30px 20px 60px;
+    }
+
+    /* Nav */
+    .nav {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 30px;
+      animation: fadeDown 0.5s ease both;
+    }
+
+    @keyframes fadeDown {
+      from { opacity: 0; transform: translateY(-15px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .back-btn {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 16px;
+      color: var(--muted);
+      font-family: 'Orbitron', sans-serif;
+      font-size: 10px;
+      letter-spacing: 2px;
+      text-decoration: none;
+      transition: all 0.2s;
+    }
+    .back-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+    .page-title {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: 4px;
+      text-transform: uppercase;
+      color: var(--accent);
+    }
+
+    /* Today banner */
+    .today-banner {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--accent);
+      border-radius: 12px;
+      padding: 20px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+      animation: fadeDown 0.5s 0.1s ease both;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .today-label {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 10px;
+      letter-spacing: 3px;
+      color: var(--muted);
+      text-transform: uppercase;
+      margin-bottom: 6px;
+    }
+
+    .today-date {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--accent);
+    }
+
+    .today-stats {
+      display: flex;
+      gap: 24px;
+    }
+
+    .stat {
+      text-align: center;
+    }
+
+    .stat-num {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--accent2);
+    }
+
+    .stat-label {
+      font-size: 11px;
+      letter-spacing: 2px;
+      color: var(--muted);
+      text-transform: uppercase;
+    }
+
+    /* Add form */
+    .section-title {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 11px;
+      letter-spacing: 4px;
+      color: var(--muted);
+      text-transform: uppercase;
+      margin-bottom: 14px;
+    }
+
+    .form-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 28px;
+      animation: fadeUp 0.5s 0.2s ease both;
+    }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    @media (max-width: 500px) {
+      .form-row { grid-template-columns: 1fr; }
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .form-label {
+      font-size: 11px;
+      letter-spacing: 2px;
+      color: var(--muted);
+      text-transform: uppercase;
+    }
+
+    .form-input {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px 14px;
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 15px;
+      color: var(--text);
+      letter-spacing: 1px;
+      outline: none;
+      transition: border-color 0.2s;
+      width: 100%;
+    }
+
+    .form-input:focus { border-color: var(--accent); }
+
+    .form-input-full {
+      grid-column: 1 / -1;
+    }
+
+    .priority-row {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
+
+    .priority-btn {
+      padding: 8px 18px;
+      border-radius: 20px;
+      border: 1px solid var(--border);
+      background: transparent;
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 13px;
+      letter-spacing: 1px;
+      cursor: pointer;
+      color: var(--muted);
+      transition: all 0.2s;
+    }
+
+    .priority-btn.selected-alta { border-color: var(--accent3); color: var(--accent3); background: rgba(255,68,102,0.08); }
+    .priority-btn.selected-media { border-color: var(--accent4); color: var(--accent4); background: rgba(255,170,0,0.08); }
+    .priority-btn.selected-baixa { border-color: var(--accent2); color: var(--accent2); background: rgba(0,255,136,0.08); }
+
+    .add-btn {
+      width: 100%;
+      padding: 14px;
+      background: var(--accent);
+      color: var(--bg);
+      border: none;
+      border-radius: 10px;
+      font-family: 'Orbitron', sans-serif;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 3px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .add-btn:hover { background: var(--accent2); transform: scale(1.01); }
+
+    /* Filter tabs */
+    .tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+      animation: fadeUp 0.5s 0.3s ease both;
+    }
+
+    .tab {
+      padding: 8px 20px;
+      border-radius: 20px;
+      border: 1px solid var(--border);
+      background: transparent;
+      font-family: 'Orbitron', sans-serif;
+      font-size: 10px;
+      letter-spacing: 2px;
+      cursor: pointer;
+      color: var(--muted);
+      transition: all 0.2s;
+      text-transform: uppercase;
+    }
+
+    .tab.active {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: rgba(0,212,255,0.07);
+    }
+
+    /* Event list */
+    .event-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      animation: fadeUp 0.5s 0.4s ease both;
+    }
+
+    .event-item {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 18px 20px;
+      display: flex;
+      gap: 16px;
+      align-items: flex-start;
+      transition: all 0.2s;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .event-item::before {
+      content: '';
+      position: absolute;
+      left: 0; top: 0; bottom: 0;
+      width: 3px;
+      background: var(--item-color, var(--accent));
+    }
+
+    .event-item:hover {
+      border-color: var(--item-color, var(--accent));
+      transform: translateX(4px);
+    }
+
+    .event-item.done {
+      opacity: 0.4;
+    }
+
+    .event-item.done .event-title {
+      text-decoration: line-through;
+    }
+
+    .event-time-block {
+      text-align: center;
+      min-width: 56px;
+    }
+
+    .event-time {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--item-color, var(--accent));
+    }
+
+    .event-date-small {
+      font-size: 10px;
+      letter-spacing: 1px;
+      color: var(--muted);
+      margin-top: 4px;
+    }
+
+    .event-body { flex: 1; }
+
+    .event-title {
+      font-size: 16px;
+      font-weight: 600;
+      letter-spacing: 1px;
+      margin-bottom: 4px;
+    }
+
+    .event-desc {
+      font-size: 13px;
+      color: var(--muted);
+      letter-spacing: 0.5px;
+    }
+
+    .event-tags {
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
+      flex-wrap: wrap;
+    }
+
+    .tag {
+      font-size: 10px;
+      letter-spacing: 2px;
+      padding: 3px 10px;
+      border-radius: 20px;
+      text-transform: uppercase;
+    }
+
+    .tag-alta { background: rgba(255,68,102,0.1); color: var(--accent3); border: 1px solid rgba(255,68,102,0.3); }
+    .tag-media { background: rgba(255,170,0,0.1); color: var(--accent4); border: 1px solid rgba(255,170,0,0.3); }
+    .tag-baixa { background: rgba(0,255,136,0.1); color: var(--accent2); border: 1px solid rgba(0,255,136,0.3); }
+
+    .event-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .action-btn {
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 6px 10px;
+      font-size: 12px;
+      cursor: pointer;
+      color: var(--muted);
+      transition: all 0.2s;
+    }
+
+    .action-btn:hover { border-color: var(--accent2); color: var(--accent2); }
+    .action-btn.del:hover { border-color: var(--accent3); color: var(--accent3); }
+
+    .empty-msg {
+      text-align: center;
+      padding: 40px;
+      color: var(--muted);
+      font-size: 14px;
+      letter-spacing: 2px;
+    }
+
+    /* Alert toast */
+    .toast {
+      position: fixed;
+      bottom: 30px;
+      right: 20px;
+      background: var(--surface);
+      border: 1px solid var(--accent2);
+      border-radius: 10px;
+      padding: 14px 20px;
+      font-family: 'Orbitron', sans-serif;
+      font-size: 11px;
+      letter-spacing: 2px;
+      color: var(--accent2);
+      box-shadow: 0 4px 20px rgba(0,255,136,0.2);
+      z-index: 999;
+      animation: slideIn 0.3s ease;
+      display: none;
+    }
+
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateX(30px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+
+  <div class="nav">
+    <a class="back-btn" href="../index.html">← Voltar</a>
+    <div class="page-title">📅 Compromissos</div>
+  </div>
+
+  <div class="today-banner">
+    <div>
+      <div class="today-label">Hoje</div>
+      <div class="today-date" id="todayDate">—</div>
+    </div>
+    <div class="today-stats">
+      <div class="stat">
+        <div class="stat-num" id="countTotal">0</div>
+        <div class="stat-label">Total</div>
+      </div>
+      <div class="stat">
+        <div class="stat-num" id="countHoje">0</div>
+        <div class="stat-label">Hoje</div>
+      </div>
+      <div class="stat">
+        <div class="stat-num" id="countDone">0</div>
+        <div class="stat-label">Feitos</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Form -->
+  <div class="section-title">▸ Novo Compromisso</div>
+  <div class="form-card">
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Título</label>
+        <input class="form-input" id="inTitle" type="text" placeholder="Ex: Reunião com médico"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Data</label>
+        <input class="form-input" id="inDate" type="date"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Horário</label>
+        <input class="form-input" id="inTime" type="time"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Descrição (opcional)</label>
+        <input class="form-input" id="inDesc" type="text" placeholder="Detalhes..."/>
+      </div>
+    </div>
+    <div class="form-label" style="margin-bottom:10px">Prioridade</div>
+    <div class="priority-row">
+      <button class="priority-btn selected-alta" onclick="setPriority('alta')" id="p-alta">🔴 Alta</button>
+      <button class="priority-btn" onclick="setPriority('media')" id="p-media">🟡 Média</button>
+      <button class="priority-btn" onclick="setPriority('baixa')" id="p-baixa">🟢 Baixa</button>
+    </div>
+    <button class="add-btn" onclick="addEvent()">+ ADICIONAR COMPROMISSO</button>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab active" onclick="setTab('todos', this)">Todos</button>
+    <button class="tab" onclick="setTab('hoje', this)">Hoje</button>
+    <button class="tab" onclick="setTab('pendentes', this)">Pendentes</button>
+    <button class="tab" onclick="setTab('feitos', this)">Feitos</button>
+  </div>
+
+  <div class="event-list" id="eventList"></div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  let events = JSON.parse(localStorage.getItem('events') || '[]');
+  let priority = 'alta';
+  let currentTab = 'todos';
+
+  const priorityColor = { alta: '#ff4466', media: '#ffaa00', baixa: '#00ff88' };
+  const months = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+  const days = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
+
+  function init() {
+    const now = new Date();
+    document.getElementById('inDate').value = now.toISOString().split('T')[0];
+    document.getElementById('inTime').value =
+      String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0');
+
+    const d = now;
+    document.getElementById('todayDate').textContent =
+      `${days[d.getDay()]}, ${d.getDate()} de ${months[d.getMonth()]} de ${d.getFullYear()}`;
+
+    render();
+    setInterval(checkAlerts, 30000);
+  }
+
+  function setPriority(p) {
+    priority = p;
+    ['alta','media','baixa'].forEach(x => {
+      document.getElementById('p-' + x).className = 'priority-btn' + (x === p ? ' selected-' + x : '');
+    });
+  }
+
+  function addEvent() {
+    const title = document.getElementById('inTitle').value.trim();
+    const date = document.getElementById('inDate').value;
+    const time = document.getElementById('inTime').value;
+    const desc = document.getElementById('inDesc').value.trim();
+
+    if (!title || !date || !time) {
+      showToast('⚠ Preencha título, data e horário!');
+      return;
+    }
+
+    events.push({ id: Date.now(), title, date, time, desc, priority, done: false });
+    events.sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
+    save();
+    render();
+    document.getElementById('inTitle').value = '';
+    document.getElementById('inDesc').value = '';
+    showToast('✓ Compromisso adicionado!');
+  }
+
+  function toggleDone(id) {
+    const ev = events.find(e => e.id === id);
+    if (ev) { ev.done = !ev.done; save(); render(); }
+  }
+
+  function deleteEvent(id) {
+    events = events.filter(e => e.id !== id);
+    save();
+    render();
+    showToast('✓ Removido.');
+  }
+
+  function setTab(tab, btn) {
+    currentTab = tab;
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    btn.classList.add('active');
+    render();
+  }
+
+  function getFiltered() {
+    const today = new Date().toISOString().split('T')[0];
+    if (currentTab === 'hoje') return events.filter(e => e.date === today);
+    if (currentTab === 'pendentes') return events.filter(e => !e.done);
+    if (currentTab === 'feitos') return events.filter(e => e.done);
+    return events;
+  }
+
+  function render() {
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('countTotal').textContent = events.length;
+    document.getElementById('countHoje').textContent = events.filter(e => e.date === today).length;
+    document.getElementById('countDone').textContent = events.filter(e => e.done).length;
+
+    const list = document.getElementById('eventList');
+    const filtered = getFiltered();
+
+    if (filtered.length === 0) {
+      list.innerHTML = '<div class="empty-msg">Nenhum compromisso aqui.</div>';
+      return;
+    }
+
+    list.innerHTML = '';
+    filtered.forEach(ev => {
+      const color = priorityColor[ev.priority];
+      const [y, m, d] = ev.date.split('-');
+      const dateStr = `${d}/${m}/${y}`;
+      const el = document.createElement('div');
+      el.className = 'event-item' + (ev.done ? ' done' : '');
+      el.style.setProperty('--item-color', color);
+      el.innerHTML = `
+        <div class="event-time-block">
+          <div class="event-time">${ev.time}</div>
+          <div class="event-date-small">${dateStr}</div>
+        </div>
+        <div class="event-body">
+          <div class="event-title">${ev.title}</div>
+          ${ev.desc ? `<div class="event-desc">${ev.desc}</div>` : ''}
+          <div class="event-tags">
+            <span class="tag tag-${ev.priority}">${ev.priority}</span>
+          </div>
+        </div>
+        <div class="event-actions">
+          <button class="action-btn" onclick="toggleDone(${ev.id})">${ev.done ? '↩' : '✓'}</button>
+          <button class="action-btn del" onclick="deleteEvent(${ev.id})">✕</button>
+        </div>
+      `;
+      list.appendChild(el);
+    });
+  }
+
+  function checkAlerts() {
+    const now = new Date();
+    const dateStr = now.toISOString().split('T')[0];
+    const timeStr = String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0');
+    events.filter(e => !e.done && e.date === dateStr && e.time === timeStr).forEach(e => {
+      showToast(`🔔 AGORA: ${e.title}`);
+    });
+  }
+
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.style.display = 'block';
+    setTimeout(() => { t.style.display = 'none'; }, 3000);
+  }
+
+  function save() {
+    localStorage.setItem('events', JSON.stringify(events));
+  }
+
+  init();
+</script>
+
+</body>
+</html>

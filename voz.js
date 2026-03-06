@@ -9,11 +9,24 @@ let navegando = false;
 
 // Detecta em qual página estamos
 const pagina = window.location.pathname;
-const naInicio     = pagina.endsWith('index.html') && !pagina.includes('/camera') && !pagina.includes('/compromissos') && !pagina.includes('/emails') && !pagina.includes('/comandos');
-const naCamera     = pagina.includes('/camera');
-const naAgenda     = pagina.includes('/compromissos');
-const noEmail      = pagina.includes('/emails');
-const nosComandos  = pagina.includes('/comandos');
+const naInicio    = !pagina.includes('/camera') && !pagina.includes('/compromissos') && !pagina.includes('/emails') && !pagina.includes('/comandos');
+const naCamera    = pagina.includes('/camera');
+const naAgenda    = pagina.includes('/compromissos');
+const noEmail     = pagina.includes('/emails');
+const nosComandos = pagina.includes('/comandos');
+
+// Caminhos corretos dependendo da página
+function caminho(destino) {
+  if (naInicio) {
+    // Na raiz, não precisa de ../
+    const rotas = { camera: 'camera/index.html', agenda: 'compromissos/index.html', email: 'emails/index.html', comandos: 'comandos/index.html', inicio: 'index.html' };
+    return rotas[destino];
+  } else {
+    // Nas subpastas, precisa de ../
+    const rotas = { camera: '../camera/index.html', agenda: '../compromissos/index.html', email: '../emails/index.html', comandos: '../comandos/index.html', inicio: '../index.html' };
+    return rotas[destino];
+  }
+}
 
 // ============================================================
 // INICIAR VOZ
@@ -28,7 +41,7 @@ function iniciarVoz() {
   recognition = new SpeechRecognition();
   recognition.lang = 'pt-BR';
   recognition.continuous = true;
-  recognition.interimResults = true;
+  recognition.interimResults = false; // false = mais rápido, responde só quando certeza
 
   recognition.onstart = () => {
     vozAtiva = true;
@@ -37,36 +50,30 @@ function iniciarVoz() {
 
   recognition.onresult = (e) => {
     if (navegando) return;
-    let interim = '';
-    let final = '';
-    for (let i = e.resultIndex; i < e.results.length; i++) {
-      const t = e.results[i][0].transcript;
-      e.results[i].isFinal ? (final += t) : (interim += t);
-    }
-    // Mostra o que está ouvindo no indicador flutuante
-    const display = final || interim;
+    // Pega o resultado mais recente
+    const texto = e.results[e.results.length - 1][0].transcript.toLowerCase().trim();
     const el = document.getElementById('voz-texto');
-    if (el) el.textContent = display;
-
-    if (final.trim()) processarComando(final.toLowerCase().trim());
+    if (el) el.textContent = texto;
+    processarComando(texto);
   };
 
   recognition.onerror = (e) => {
     if (e.error === 'no-speech' || e.error === 'aborted') return;
     if (e.error === 'not-allowed') {
-      vozNotify('⚠ Permita o microfone nas configurações do navegador.', 'erro');
+      vozNotify('⚠ Permita o microfone nas configurações.', 'erro');
       pararVoz();
       return;
     }
   };
 
+  // Reinicia automaticamente ao parar
   recognition.onend = () => {
     if (vozAtiva && !navegando) {
       setTimeout(() => {
         if (vozAtiva && !navegando) {
           try { recognition.start(); } catch(e) {}
         }
-      }, 400);
+      }, 200); // 200ms = reinício mais rápido
     }
   };
 
@@ -92,54 +99,65 @@ function toggleVoz() {
 // PROCESSAR COMANDOS
 // ============================================================
 function processarComando(texto) {
-  // NAVEGAÇÃO
-  if (texto.includes('abrir câmera') || texto.includes('abrir camera') || texto.includes('abre câmera') || texto.includes('abre camera')) {
-    vozNotify('📷 Abrindo câmera...', 'ok');
-    falar('Abrindo câmera');
-    irPara('../camera/index.html');
 
-  } else if (texto.includes('fechar câmera') || texto.includes('fechar camera') || texto.includes('fecha câmera') || texto.includes('fecha camera')) {
-    if (naCamera) { vozNotify('🏠 Voltando...', 'ok'); falar('Voltando ao início'); irPara('../index.html'); }
-    else vozNotify('A câmera não está aberta.', 'info');
+  // CÂMERA
+  if (texto.includes('câmera') || texto.includes('camera')) {
+    if (texto.includes('fechar') || texto.includes('fecha') || texto.includes('sair')) {
+      if (naCamera) { vozNotify('🏠 Voltando...', 'ok'); falar('Voltando'); irPara(caminho('inicio')); }
+      else vozNotify('A câmera não está aberta.', 'info');
+    } else if (texto.includes('tirar foto') || texto.includes('tira foto') || texto.includes('foto')) {
+      if (naCamera) {
+        const btn = document.getElementById('btnCapture');
+        if (btn && !btn.disabled) { btn.click(); vozNotify('📸 Foto tirada!', 'ok'); falar('Foto tirada'); }
+        else vozNotify('Ligue a câmera primeiro.', 'info');
+      } else {
+        vozNotify('📷 Abrindo câmera...', 'ok'); falar('Abrindo câmera'); irPara(caminho('camera'));
+      }
+    } else if (texto.includes('ligar') || texto.includes('liga')) {
+      if (naCamera) { document.getElementById('btnStart')?.click(); falar('Câmera ligada'); }
+      else { vozNotify('📷 Abrindo câmera...', 'ok'); falar('Abrindo câmera'); irPara(caminho('camera')); }
+    } else if (texto.includes('desligar') || texto.includes('desliga')) {
+      if (naCamera) { document.getElementById('btnStop')?.click(); falar('Câmera desligada'); }
+    } else {
+      // Qualquer menção a câmera = abrir
+      vozNotify('📷 Abrindo câmera...', 'ok'); falar('Abrindo câmera'); irPara(caminho('camera'));
+    }
 
-  } else if (texto.includes('abrir agenda') || texto.includes('abre agenda') || texto.includes('abrir compromissos') || texto.includes('abre compromissos')) {
-    vozNotify('📅 Abrindo agenda...', 'ok');
-    falar('Abrindo agenda');
-    irPara('../compromissos/index.html');
+  // AGENDA / COMPROMISSOS
+  } else if (texto.includes('agenda') || texto.includes('compromisso')) {
+    if (texto.includes('fechar') || texto.includes('fecha') || texto.includes('sair')) {
+      if (naAgenda) { vozNotify('🏠 Voltando...', 'ok'); falar('Voltando'); irPara(caminho('inicio')); }
+      else vozNotify('A agenda não está aberta.', 'info');
+    } else if (texto.includes('tenho') || texto.includes('hoje') || texto.includes('o que')) {
+      verificarCompromissosHoje();
+    } else if (texto.includes('próximo') || texto.includes('proximo')) {
+      proximoCompromisso();
+    } else {
+      vozNotify('📅 Abrindo agenda...', 'ok'); falar('Abrindo agenda'); irPara(caminho('agenda'));
+    }
 
-  } else if (texto.includes('fechar agenda') || texto.includes('fecha agenda') || texto.includes('fechar compromissos') || texto.includes('fecha compromissos')) {
-    if (naAgenda) { vozNotify('🏠 Voltando...', 'ok'); falar('Voltando ao início'); irPara('../index.html'); }
-    else vozNotify('A agenda não está aberta.', 'info');
+  // EMAIL
+  } else if (texto.includes('email') || texto.includes('e-mail') || texto.includes('correio')) {
+    if (texto.includes('fechar') || texto.includes('fecha') || texto.includes('sair')) {
+      if (noEmail) { vozNotify('🏠 Voltando...', 'ok'); falar('Voltando'); irPara(caminho('inicio')); }
+      else vozNotify('O e-mail não está aberto.', 'info');
+    } else {
+      vozNotify('✉️ Abrindo e-mails...', 'ok'); falar('Abrindo e-mails'); irPara(caminho('email'));
+    }
 
-  } else if (texto.includes('abrir email') || texto.includes('abre email') || texto.includes('abrir e-mail') || texto.includes('abre e-mail')) {
-    vozNotify('✉️ Abrindo e-mails...', 'ok');
-    falar('Abrindo e-mails');
-    irPara('../emails/index.html');
+  // VOLTAR / INÍCIO
+  } else if (texto.includes('voltar') || texto.includes('início') || texto.includes('inicio') || texto.includes('principal') || texto.includes('home')) {
+    vozNotify('🏠 Indo para o início...', 'ok'); falar('Voltando ao início'); irPara(caminho('inicio'));
 
-  } else if (texto.includes('fechar email') || texto.includes('fecha email') || texto.includes('fechar e-mail') || texto.includes('fecha e-mail')) {
-    if (noEmail) { vozNotify('🏠 Voltando...', 'ok'); falar('Voltando ao início'); irPara('../index.html'); }
-    else vozNotify('O e-mail não está aberto.', 'info');
-
-  } else if (texto.includes('início') || texto.includes('inicio') || texto.includes('voltar') || texto.includes('página principal') || texto.includes('pagina principal')) {
-    vozNotify('🏠 Indo para o início...', 'ok');
-    falar('Voltando ao início');
-    irPara('../index.html');
-
-  // AGENDA — CONSULTAS
-  } else if (texto.includes('compromisso hoje') || texto.includes('tenho compromisso') || texto.includes('agenda hoje') || texto.includes('o que tenho hoje')) {
-    verificarCompromissosHoje();
-
-  } else if (texto.includes('próximo compromisso') || texto.includes('proximo compromisso')) {
-    proximoCompromisso();
-
-  // HORÁRIO E DATA
-  } else if (texto.includes('hora') || texto.includes('horas')) {
+  // HORAS
+  } else if (texto.includes('hora')) {
     const now = new Date();
     const h = String(now.getHours()).padStart(2,'0');
     const m = String(now.getMinutes()).padStart(2,'0');
     vozNotify(`🕐 São ${h}:${m}`, 'ok');
     falar(`São ${h} horas e ${m} minutos`);
 
+  // DATA
   } else if (texto.includes('dia') || texto.includes('data') || texto.includes('hoje')) {
     const now = new Date();
     const dias = ['domingo','segunda-feira','terça-feira','quarta-feira','quinta-feira','sexta-feira','sábado'];
@@ -147,48 +165,30 @@ function processarComando(texto) {
     const str = `${dias[now.getDay()]}, ${now.getDate()} de ${meses[now.getMonth()]} de ${now.getFullYear()}`;
     vozNotify(`📅 ${str}`, 'ok');
     falar(`Hoje é ${str}`);
-
-  // CÂMERA — TIRAR FOTO
-  } else if ((texto.includes('tirar foto') || texto.includes('tira foto') || texto.includes('fotografar')) && naCamera) {
-    const btn = document.getElementById('btnCapture');
-    if (btn && !btn.disabled) { btn.click(); vozNotify('📸 Foto tirada!', 'ok'); falar('Foto tirada'); }
-    else { vozNotify('Ligue a câmera primeiro.', 'info'); falar('Ligue a câmera primeiro'); }
-
-  } else if ((texto.includes('ligar câmera') || texto.includes('liga câmera') || texto.includes('ligar camera') || texto.includes('liga camera')) && naCamera) {
-    const btn = document.getElementById('btnStart');
-    if (btn && !btn.disabled) { btn.click(); falar('Câmera ligada'); }
-
-  } else if ((texto.includes('desligar câmera') || texto.includes('desliga câmera') || texto.includes('desligar camera')) && naCamera) {
-    const btn = document.getElementById('btnStop');
-    if (btn && !btn.disabled) { btn.click(); falar('Câmera desligada'); }
-
   }
 }
 
 // ============================================================
-// FUNÇÕES DE AGENDA
+// AGENDA — CONSULTAS
 // ============================================================
 function verificarCompromissosHoje() {
   const eventos = JSON.parse(localStorage.getItem('events') || '[]');
   const hoje = new Date().toISOString().split('T')[0];
   const deHoje = eventos.filter(e => e.date === hoje && !e.done);
-
   if (deHoje.length === 0) {
     vozNotify('📅 Nenhum compromisso hoje!', 'ok');
     falar('Você não tem compromissos hoje.');
   } else {
-    const nomes = deHoje.map(e => `${e.time} — ${e.title}`).join(', ');
     vozNotify(`📅 Hoje: ${deHoje.length} compromisso(s)`, 'ok');
-    falar(`Você tem ${deHoje.length} compromisso${deHoje.length > 1 ? 's' : ''} hoje. ${deHoje.map(e => `${e.title} às ${e.time}`).join(', ')}`);
+    falar(`Você tem ${deHoje.length} compromisso${deHoje.length > 1 ? 's' : ''} hoje. ${deHoje.map(e => `${e.title} às ${e.time}`).join('. ')}`);
   }
 }
 
 function proximoCompromisso() {
   const eventos = JSON.parse(localStorage.getItem('events') || '[]');
-  const agora = new Date();
-  const agoraStr = agora.toISOString().split('T')[0] + agora.toTimeString().slice(0,5);
+  const now = new Date();
+  const agoraStr = now.toISOString().split('T')[0] + now.toTimeString().slice(0,5);
   const futuros = eventos.filter(e => !e.done && (e.date + e.time) >= agoraStr);
-
   if (futuros.length === 0) {
     vozNotify('📅 Sem próximos compromissos.', 'ok');
     falar('Você não tem próximos compromissos.');
@@ -204,7 +204,7 @@ function proximoCompromisso() {
 // ============================================================
 function irPara(url) {
   navegando = true;
-  setTimeout(() => { window.location.href = url; }, 1000);
+  setTimeout(() => { window.location.href = url; }, 600); // 600ms = mais rápido
 }
 
 function falar(texto) {
@@ -212,7 +212,7 @@ function falar(texto) {
     window.speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance(texto);
     u.lang = 'pt-BR';
-    u.rate = 1.0;
+    u.rate = 1.1; // um pouco mais rápido
     window.speechSynthesis.speak(u);
   }
 }
@@ -224,14 +224,13 @@ function vozNotify(msg, tipo) {
   el.className = 'voz-notify voz-' + tipo;
   el.style.display = 'block';
   clearTimeout(el._timer);
-  el._timer = setTimeout(() => { el.style.display = 'none'; }, 4000);
+  el._timer = setTimeout(() => { el.style.display = 'none'; }, 3500);
 }
 
 function atualizarBotaoVoz(ativo) {
   const btn = document.getElementById('voz-fab');
   if (!btn) return;
   btn.textContent = ativo ? '🎙️' : '🎤';
-  btn.title = ativo ? 'Voz ativa — toque para desativar' : 'Toque para ativar voz';
   btn.classList.toggle('ativo', ativo);
 }
 
@@ -245,24 +244,24 @@ function injetarUI() {
       position: fixed;
       bottom: 28px;
       right: 24px;
-      width: 60px;
-      height: 60px;
+      width: 64px;
+      height: 64px;
       border-radius: 50%;
       background: #0a1520;
       border: 2px solid #0d2a3f;
-      font-size: 26px;
+      font-size: 28px;
       cursor: pointer;
       z-index: 9999;
       display: flex;
       align-items: center;
       justify-content: center;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+      box-shadow: 0 4px 20px rgba(0,0,0,0.5);
       transition: all 0.3s;
     }
     .voz-fab.ativo {
       border-color: #ff4466;
       background: rgba(255,68,102,0.15);
-      box-shadow: 0 0 20px rgba(255,68,102,0.4);
+      box-shadow: 0 0 24px rgba(255,68,102,0.5);
       animation: vozPulse 1.8s ease-in-out infinite;
     }
     @keyframes vozPulse {
@@ -271,7 +270,7 @@ function injetarUI() {
     }
     .voz-notify {
       position: fixed;
-      bottom: 100px;
+      bottom: 104px;
       right: 24px;
       background: #0a1520;
       border-radius: 12px;
@@ -282,19 +281,19 @@ function injetarUI() {
       z-index: 9998;
       max-width: 280px;
       display: none;
-      animation: vozSlide 0.3s ease;
       box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+      animation: vozSlide 0.2s ease;
     }
-    .voz-ok    { border: 1px solid #00ff88; color: #00ff88; }
-    .voz-erro  { border: 1px solid #ff4466; color: #ff4466; }
-    .voz-info  { border: 1px solid #00d4ff; color: #00d4ff; }
+    .voz-ok   { border: 1px solid #00ff88; color: #00ff88; }
+    .voz-erro { border: 1px solid #ff4466; color: #ff4466; }
+    .voz-info { border: 1px solid #00d4ff; color: #00d4ff; }
     @keyframes vozSlide {
-      from { opacity: 0; transform: translateX(20px); }
+      from { opacity: 0; transform: translateX(16px); }
       to   { opacity: 1; transform: translateX(0); }
     }
     .voz-ouvindo {
       position: fixed;
-      bottom: 100px;
+      bottom: 104px;
       left: 24px;
       background: #0a1520;
       border: 1px solid #ff4466;
@@ -305,29 +304,25 @@ function injetarUI() {
       letter-spacing: 1px;
       color: #c8e8f5;
       z-index: 9998;
-      max-width: 220px;
+      max-width: 200px;
       display: none;
     }
-    .voz-fab.ativo ~ .voz-ouvindo { display: block; }
+    .voz-fab.ativo ~ * ~ .voz-ouvindo { display: block; }
   `;
   document.head.appendChild(style);
 
-  // Botão flutuante
   const fab = document.createElement('button');
   fab.id = 'voz-fab';
   fab.className = 'voz-fab';
   fab.textContent = '🎤';
-  fab.title = 'Toque para ativar voz';
   fab.onclick = toggleVoz;
   document.body.appendChild(fab);
 
-  // Notificação
   const notify = document.createElement('div');
   notify.id = 'voz-notify';
   notify.className = 'voz-notify';
   document.body.appendChild(notify);
 
-  // Texto ouvindo
   const ouvindo = document.createElement('div');
   ouvindo.id = 'voz-texto';
   ouvindo.className = 'voz-ouvindo';
@@ -335,5 +330,4 @@ function injetarUI() {
   document.body.appendChild(ouvindo);
 }
 
-// Inicia tudo quando a página carregar
 window.addEventListener('DOMContentLoaded', injetarUI);

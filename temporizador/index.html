@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Temporizador — Assistente</title>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;600&display=swap" rel="stylesheet"/>
+  <style>
+    :root {
+      --bg: #050a0f; --surface: #0a1520; --border: #0d2a3f;
+      --accent: #00ff88; --accent2: #00d4ff; --accent3: #ff4466; --accent4: #ffaa00;
+      --text: #c8e8f5; --muted: #3a6070;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: var(--bg); font-family: 'Rajdhani', sans-serif; color: var(--text); min-height: 100vh; }
+    body::before {
+      content: ''; position: fixed; inset: 0;
+      background-image: linear-gradient(rgba(0,255,136,0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(0,255,136,0.02) 1px, transparent 1px);
+      background-size: 40px 40px; pointer-events: none; z-index: 0;
+    }
+    .container { position: relative; z-index: 1; max-width: 900px; margin: 0 auto; padding: 30px 20px 100px; }
+    @keyframes fadeDown { from { opacity:0; transform:translateY(-15px); } to { opacity:1; transform:translateY(0); } }
+    @keyframes fadeUp { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }
+    @keyframes ring { 0%,100%{transform:scale(1);} 50%{transform:scale(1.05);} }
+
+    .nav { display:flex; align-items:center; gap:16px; margin-bottom:30px; animation:fadeDown 0.5s ease both; }
+    .back-btn {
+      background:var(--surface); border:1px solid var(--border); border-radius:8px;
+      padding:8px 16px; color:var(--muted); font-family:'Orbitron',sans-serif;
+      font-size:10px; letter-spacing:2px; text-decoration:none; transition:all 0.2s;
+    }
+    .back-btn:hover { border-color:var(--accent); color:var(--accent); }
+    .page-title { font-family:'Orbitron',sans-serif; font-size:18px; font-weight:700; letter-spacing:4px; text-transform:uppercase; color:var(--accent); }
+
+    /* Tabs */
+    .tabs { display:flex; gap:10px; margin-bottom:24px; animation:fadeDown 0.5s 0.1s ease both; }
+    .tab {
+      flex:1; padding:12px; border-radius:10px; border:1px solid var(--border);
+      background:transparent; font-family:'Orbitron',sans-serif; font-size:11px;
+      letter-spacing:2px; cursor:pointer; color:var(--muted); transition:all 0.2s; text-transform:uppercase;
+    }
+    .tab.active { border-color:var(--accent); color:var(--accent); background:rgba(0,255,136,0.07); }
+
+    .panel { display:none; }
+    .panel.active { display:block; }
+
+    /* ===== TEMPORIZADOR ===== */
+    .timer-display {
+      background:var(--surface); border:1px solid var(--border); border-radius:16px;
+      padding:40px; text-align:center; margin-bottom:20px; animation:fadeUp 0.5s 0.2s ease both;
+    }
+    .timer-display.ringing { border-color:var(--accent3); animation:ring 0.5s ease infinite; }
+
+    .timer-time {
+      font-family:'Orbitron',sans-serif; font-size:clamp(48px,12vw,80px); font-weight:900;
+      color:var(--accent); text-shadow:0 0 30px rgba(0,255,136,0.4); letter-spacing:4px; margin-bottom:8px;
+    }
+    .timer-time.ringing { color:var(--accent3); text-shadow:0 0 30px rgba(255,68,102,0.6); }
+    .timer-label { font-size:13px; letter-spacing:3px; color:var(--muted); text-transform:uppercase; }
+
+    /* Progress ring */
+    .progress-wrap { position:relative; display:inline-block; margin-bottom:20px; }
+    .progress-svg { transform:rotate(-90deg); }
+    .progress-bg { fill:none; stroke:var(--border); stroke-width:6; }
+    .progress-bar { fill:none; stroke:var(--accent); stroke-width:6; stroke-linecap:round; transition:stroke-dashoffset 1s linear; }
+
+    .timer-presets { display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin-bottom:16px; }
+    .preset-btn {
+      padding:10px 20px; border-radius:20px; border:1px solid var(--border);
+      background:transparent; font-family:'Rajdhani',sans-serif; font-size:14px;
+      letter-spacing:1px; cursor:pointer; color:var(--muted); transition:all 0.2s;
+    }
+    .preset-btn:hover { border-color:var(--accent); color:var(--accent); }
+
+    .timer-custom { display:flex; gap:10px; justify-content:center; margin-bottom:20px; flex-wrap:wrap; }
+    .time-input {
+      background:var(--bg); border:1px solid var(--border); border-radius:8px;
+      padding:10px 14px; font-family:'Orbitron',sans-serif; font-size:20px; font-weight:700;
+      color:var(--accent); width:80px; text-align:center; outline:none;
+    }
+    .time-input:focus { border-color:var(--accent); }
+    .time-sep { font-family:'Orbitron',sans-serif; font-size:24px; color:var(--muted); align-self:center; }
+
+    .timer-controls { display:flex; gap:12px; justify-content:center; }
+    .ctrl-btn {
+      padding:14px 32px; border-radius:10px; font-family:'Orbitron',sans-serif;
+      font-size:12px; font-weight:700; letter-spacing:2px; cursor:pointer; border:none; transition:all 0.2s;
+    }
+    .btn-start { background:var(--accent); color:var(--bg); }
+    .btn-start:hover { background:#00ffaa; transform:scale(1.03); }
+    .btn-pause { background:var(--accent4); color:var(--bg); }
+    .btn-pause:hover { opacity:0.85; }
+    .btn-stop { background:transparent; color:var(--accent3); border:1px solid var(--accent3); }
+    .btn-stop:hover { background:rgba(255,68,102,0.1); }
+
+    /* ===== ALARME ===== */
+    .alarm-form {
+      background:var(--surface); border:1px solid var(--border); border-radius:12px;
+      padding:24px; margin-bottom:20px; animation:fadeUp 0.5s 0.2s ease both;
+    }
+    .section-title { font-family:'Orbitron',sans-serif; font-size:11px; letter-spacing:4px; color:var(--muted); text-transform:uppercase; margin-bottom:14px; }
+    .alarm-row { display:flex; gap:12px; align-items:flex-end; flex-wrap:wrap; }
+    .form-group { display:flex; flex-direction:column; gap:6px; }
+    .form-label { font-size:11px; letter-spacing:2px; color:var(--muted); text-transform:uppercase; }
+    .form-input {
+      background:var(--bg); border:1px solid var(--border); border-radius:8px;
+      padding:12px 14px; font-family:'Rajdhani',sans-serif; font-size:16px;
+      color:var(--text); outline:none; transition:border-color 0.2s; letter-spacing:1px;
+    }
+    .form-input:focus { border-color:var(--accent); }
+    .add-alarm-btn {
+      background:var(--accent); color:var(--bg); border:none; border-radius:8px;
+      padding:12px 24px; font-family:'Orbitron',sans-serif; font-size:11px;
+      font-weight:700; letter-spacing:2px; cursor:pointer; transition:all 0.2s; white-space:nowrap;
+    }
+    .add-alarm-btn:hover { background:var(--accent2); }
+
+    .alarm-list { display:flex; flex-direction:column; gap:10px; animation:fadeUp 0.5s 0.3s ease both; }
+    .alarm-item {
+      background:var(--surface); border:1px solid var(--border); border-radius:12px;
+      padding:16px 20px; display:flex; justify-content:space-between; align-items:center;
+      transition:all 0.2s;
+    }
+    .alarm-item.active-alarm { border-color:var(--accent); box-shadow:0 0 16px rgba(0,255,136,0.2); }
+    .alarm-item.ringing-alarm { border-color:var(--accent3); animation:ring 0.5s ease infinite; }
+    .alarm-time-big { font-family:'Orbitron',sans-serif; font-size:28px; font-weight:700; color:var(--accent); }
+    .alarm-name { font-size:14px; color:var(--muted); letter-spacing:1px; margin-top:4px; }
+    .alarm-actions { display:flex; gap:8px; align-items:center; }
+    .toggle-switch {
+      position:relative; width:48px; height:26px; cursor:pointer;
+    }
+    .toggle-switch input { opacity:0; width:0; height:0; }
+    .slider {
+      position:absolute; inset:0; background:var(--border); border-radius:20px; transition:0.3s;
+    }
+    .slider::before {
+      content:''; position:absolute; width:20px; height:20px; left:3px; bottom:3px;
+      background:var(--muted); border-radius:50%; transition:0.3s;
+    }
+    input:checked + .slider { background:rgba(0,255,136,0.2); border:1px solid var(--accent); }
+    input:checked + .slider::before { transform:translateX(22px); background:var(--accent); }
+    .del-alarm { background:none; border:1px solid var(--border); border-radius:6px; padding:6px 10px; color:var(--muted); cursor:pointer; font-size:14px; transition:all 0.2s; }
+    .del-alarm:hover { border-color:var(--accent3); color:var(--accent3); }
+    .empty-msg { color:var(--muted); font-size:13px; letter-spacing:2px; padding:20px 0; text-align:center; }
+
+    /* Toast */
+    .toast {
+      position:fixed; top:20px; left:50%; transform:translateX(-50%);
+      background:var(--surface); border:2px solid var(--accent3); border-radius:12px;
+      padding:16px 28px; font-family:'Orbitron',sans-serif; font-size:14px;
+      letter-spacing:2px; color:var(--accent3); z-index:9997; display:none;
+      box-shadow:0 4px 30px rgba(255,68,102,0.4); animation:fadeDown 0.3s ease;
+    }
+    .toast-stop {
+      margin-top:12px; background:var(--accent3); color:var(--bg); border:none;
+      border-radius:8px; padding:10px 24px; font-family:'Orbitron',sans-serif;
+      font-size:11px; font-weight:700; letter-spacing:2px; cursor:pointer; display:block; width:100%;
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+  <div class="nav">
+    <a class="back-btn" href="../index.html">← Voltar</a>
+    <div class="page-title">⏱️ Temporizador</div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" onclick="setTab('timer',this)">⏱ Temporizador</button>
+    <button class="tab" onclick="setTab('alarm',this)">⏰ Alarme</button>
+  </div>
+
+  <!-- TEMPORIZADOR -->
+  <div class="panel active" id="panel-timer">
+    <div class="timer-display" id="timerDisplay">
+      <div class="timer-time" id="timerTime">00:00:00</div>
+      <div class="timer-label" id="timerLabel">Pronto para iniciar</div>
+    </div>
+
+    <div class="timer-presets">
+      <button class="preset-btn" onclick="setTimer(1,0,0)">1 min</button>
+      <button class="preset-btn" onclick="setTimer(5,0,0)">5 min</button>
+      <button class="preset-btn" onclick="setTimer(10,0,0)">10 min</button>
+      <button class="preset-btn" onclick="setTimer(15,0,0)">15 min</button>
+      <button class="preset-btn" onclick="setTimer(30,0,0)">30 min</button>
+      <button class="preset-btn" onclick="setTimer(60,0,0)">1 hora</button>
+    </div>
+
+    <div class="timer-custom">
+      <input class="time-input" id="tHours" type="number" min="0" max="23" value="0" placeholder="00"/>
+      <span class="time-sep">h</span>
+      <input class="time-input" id="tMinutes" type="number" min="0" max="59" value="5" placeholder="00"/>
+      <span class="time-sep">m</span>
+      <input class="time-input" id="tSeconds" type="number" min="0" max="59" value="0" placeholder="00"/>
+      <span class="time-sep">s</span>
+    </div>
+
+    <div class="timer-controls">
+      <button class="ctrl-btn btn-start" id="btnStart" onclick="startTimer()">▶ INICIAR</button>
+      <button class="ctrl-btn btn-pause" id="btnPause" onclick="pauseTimer()" style="display:none">⏸ PAUSAR</button>
+      <button class="ctrl-btn btn-stop" onclick="stopTimer()">■ PARAR</button>
+    </div>
+  </div>
+
+  <!-- ALARME -->
+  <div class="panel" id="panel-alarm">
+    <div class="alarm-form">
+      <div class="section-title">▸ Novo Alarme</div>
+      <div class="alarm-row">
+        <div class="form-group">
+          <label class="form-label">Horário</label>
+          <input class="form-input" id="alarmTime" type="time"/>
+        </div>
+        <div class="form-group" style="flex:1">
+          <label class="form-label">Nome (opcional)</label>
+          <input class="form-input" id="alarmName" type="text" placeholder="Ex: Tomar remédio"/>
+        </div>
+        <button class="add-alarm-btn" onclick="addAlarm()">+ ADICIONAR</button>
+      </div>
+    </div>
+    <div class="section-title">▸ Meus Alarmes</div>
+    <div class="alarm-list" id="alarmList"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast">
+  <div id="toastMsg"></div>
+  <button class="toast-stop" onclick="stopAlert()">✓ DISPENSAR</button>
+</div>
+
+<script src="../voz.js"></script>
+<script>
+  // ===== TABS =====
+  function setTab(name, btn) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('panel-' + name).classList.add('active');
+  }
+
+  // ===== TEMPORIZADOR =====
+  let timerInterval = null;
+  let timerTotal = 0;
+  let timerRemaining = 0;
+  let timerRunning = false;
+
+  function setTimer(h, m, s) {
+    stopTimer();
+    document.getElementById('tHours').value = h;
+    document.getElementById('tMinutes').value = m;
+    document.getElementById('tSeconds').value = s;
+    timerRemaining = h * 3600 + m * 60 + s;
+    timerTotal = timerRemaining;
+    updateTimerDisplay();
+  }
+
+  function startTimer() {
+    const h = parseInt(document.getElementById('tHours').value) || 0;
+    const m = parseInt(document.getElementById('tMinutes').value) || 0;
+    const s = parseInt(document.getElementById('tSeconds').value) || 0;
+    if (!timerRunning) {
+      if (timerRemaining === 0 || timerRemaining === timerTotal) {
+        timerRemaining = h * 3600 + m * 60 + s;
+        timerTotal = timerRemaining;
+      }
+    }
+    if (timerRemaining <= 0) return;
+    timerRunning = true;
+    document.getElementById('btnStart').style.display = 'none';
+    document.getElementById('btnPause').style.display = 'inline-block';
+    document.getElementById('timerLabel').textContent = 'Contando...';
+    timerInterval = setInterval(() => {
+      timerRemaining--;
+      updateTimerDisplay();
+      if (timerRemaining <= 0) {
+        clearInterval(timerInterval);
+        timerRunning = false;
+        timerFim();
+      }
+    }, 1000);
+  }
+
+  function pauseTimer() {
+    if (timerRunning) {
+      clearInterval(timerInterval);
+      timerRunning = false;
+      document.getElementById('btnStart').style.display = 'inline-block';
+      document.getElementById('btnStart').textContent = '▶ CONTINUAR';
+      document.getElementById('btnPause').style.display = 'none';
+      document.getElementById('timerLabel').textContent = 'Pausado';
+    }
+  }
+
+  function stopTimer() {
+    clearInterval(timerInterval);
+    timerRunning = false;
+    timerRemaining = 0;
+    timerTotal = 0;
+    document.getElementById('timerTime').textContent = '00:00:00';
+    document.getElementById('timerTime').classList.remove('ringing');
+    document.getElementById('timerDisplay').classList.remove('ringing');
+    document.getElementById('timerLabel').textContent = 'Pronto para iniciar';
+    document.getElementById('btnStart').style.display = 'inline-block';
+    document.getElementById('btnStart').textContent = '▶ INICIAR';
+    document.getElementById('btnPause').style.display = 'none';
+  }
+
+  function updateTimerDisplay() {
+    const h = Math.floor(timerRemaining / 3600);
+    const m = Math.floor((timerRemaining % 3600) / 60);
+    const s = timerRemaining % 60;
+    document.getElementById('timerTime').textContent =
+      `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+  }
+
+  function timerFim() {
+    document.getElementById('timerTime').classList.add('ringing');
+    document.getElementById('timerDisplay').classList.add('ringing');
+    document.getElementById('timerLabel').textContent = '⏰ TEMPO ESGOTADO!';
+    document.getElementById('btnStart').style.display = 'inline-block';
+    document.getElementById('btnStart').textContent = '▶ INICIAR';
+    document.getElementById('btnPause').style.display = 'none';
+    tocarAlarme('⏰ Tempo esgotado!');
+    falarTexto('Atenção! O tempo acabou!');
+  }
+
+  // ===== ALARME =====
+  let alarmes = JSON.parse(localStorage.getItem('alarmes') || '[]');
+  let alarmInterval = setInterval(verificarAlarmes, 10000);
+
+  function addAlarm() {
+    const time = document.getElementById('alarmTime').value;
+    const name = document.getElementById('alarmName').value.trim() || 'Alarme';
+    if (!time) { alert('Selecione um horário!'); return; }
+    alarmes.push({ id: Date.now(), time, name, ativo: true });
+    localStorage.setItem('alarmes', JSON.stringify(alarmes));
+    renderAlarmes();
+    document.getElementById('alarmName').value = '';
+  }
+
+  function toggleAlarm(id) {
+    const a = alarmes.find(x => x.id === id);
+    if (a) { a.ativo = !a.ativo; localStorage.setItem('alarmes', JSON.stringify(alarmes)); renderAlarmes(); }
+  }
+
+  function deleteAlarm(id) {
+    alarmes = alarmes.filter(x => x.id !== id);
+    localStorage.setItem('alarmes', JSON.stringify(alarmes));
+    renderAlarmes();
+  }
+
+  function renderAlarmes() {
+    const list = document.getElementById('alarmList');
+    if (alarmes.length === 0) { list.innerHTML = '<div class="empty-msg">Nenhum alarme cadastrado.</div>'; return; }
+    list.innerHTML = '';
+    alarmes.forEach(a => {
+      const el = document.createElement('div');
+      el.className = 'alarm-item' + (a.ativo ? ' active-alarm' : '');
+      el.innerHTML = `
+        <div>
+          <div class="alarm-time-big">${a.time}</div>
+          <div class="alarm-name">${a.name}</div>
+        </div>
+        <div class="alarm-actions">
+          <label class="toggle-switch">
+            <input type="checkbox" ${a.ativo ? 'checked' : ''} onchange="toggleAlarm(${a.id})"/>
+            <span class="slider"></span>
+          </label>
+          <button class="del-alarm" onclick="deleteAlarm(${a.id})">✕</button>
+        </div>
+      `;
+      list.appendChild(el);
+    });
+  }
+
+  function verificarAlarmes() {
+    const now = new Date();
+    const curr = String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0');
+    alarmes.filter(a => a.ativo && a.time === curr).forEach(a => {
+      tocarAlarme(`⏰ ${a.name}`);
+      falarTexto(`Atenção! Alarme: ${a.name}`);
+    });
+  }
+
+  // ===== ALERTA SONORO =====
+  let audioCtx = null;
+  let alertActive = false;
+
+  function tocarAlarme(msg) {
+    alertActive = true;
+    document.getElementById('toastMsg').textContent = msg;
+    document.getElementById('toast').style.display = 'block';
+    tocarBeep();
+  }
+
+  function tocarBeep() {
+    if (!alertActive) return;
+    try {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.connect(gain); gain.connect(audioCtx.destination);
+      osc.frequency.value = 880;
+      osc.type = 'sine';
+      gain.gain.setValueAtTime(0.5, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.8);
+      osc.start(); osc.stop(audioCtx.currentTime + 0.8);
+      setTimeout(() => { if (alertActive) tocarBeep(); }, 1200);
+    } catch(e) {}
+  }
+
+  function stopAlert() {
+    alertActive = false;
+    document.getElementById('toast').style.display = 'none';
+    document.getElementById('timerTime').classList.remove('ringing');
+    document.getElementById('timerDisplay').classList.remove('ringing');
+  }
+
+  function falarTexto(texto) {
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(texto);
+      u.lang = 'pt-BR'; window.speechSynthesis.speak(u);
+    }
+  }
+
+  // Inicia com horário atual no alarme
+  const now = new Date();
+  document.getElementById('alarmTime').value =
+    String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0');
+
+  renderAlarmes();
+  verificarAlarmes();
+</script>
+</body>
+</html>

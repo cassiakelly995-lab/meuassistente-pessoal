@@ -39,7 +39,6 @@
     .back-btn:hover { border-color: var(--accent); color: var(--accent); }
     .page-title { font-family: 'Orbitron', sans-serif; font-size: 18px; font-weight: 700; letter-spacing: 4px; text-transform: uppercase; color: var(--accent); }
 
-    /* Search */
     .search-box {
       background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
       padding: 20px; margin-bottom: 24px; animation: fadeDown 0.5s 0.1s ease both;
@@ -64,7 +63,6 @@
     }
     .loc-btn:hover { border-color: var(--accent2); }
 
-    /* Main weather card */
     .weather-main {
       background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
       padding: 32px; margin-bottom: 20px; text-align: center;
@@ -80,10 +78,10 @@
     .detail-val { font-family: 'Orbitron', sans-serif; font-size: 20px; font-weight: 700; color: var(--accent2); }
     .detail-label { font-size: 11px; letter-spacing: 2px; color: var(--muted); text-transform: uppercase; margin-top: 4px; }
 
-    /* Forecast */
     .forecast-grid {
-      display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-      gap: 12px; margin-bottom: 20px; animation: fadeUp 0.5s 0.3s ease both; display: none;
+      display: none;
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+      gap: 12px; margin-bottom: 20px; animation: fadeUp 0.5s 0.3s ease both;
     }
     .forecast-card {
       background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
@@ -95,7 +93,6 @@
     .forecast-temp { font-family: 'Orbitron', sans-serif; font-size: 18px; font-weight: 700; color: var(--accent); }
     .forecast-min { font-size: 12px; color: var(--muted); margin-top: 4px; }
 
-    /* Loading / error */
     .status-msg {
       text-align: center; padding: 40px; color: var(--muted);
       font-family: 'Orbitron', sans-serif; font-size: 12px; letter-spacing: 3px;
@@ -142,44 +139,51 @@
   <div class="forecast-grid" id="forecastGrid"></div>
 </div>
 
-<script src="../voz.js"></script>
 <script>
-  const API_KEY = '4d8fb5b93d4af21d66a2948a4bb4f7d0'; // chave gratuita OpenWeatherMap
-
-  const weatherIcons = {
-    '01d':'☀️','01n':'🌙','02d':'⛅','02n':'⛅','03d':'☁️','03n':'☁️',
-    '04d':'☁️','04n':'☁️','09d':'🌧️','09n':'🌧️','10d':'🌦️','10n':'🌧️',
-    '11d':'⛈️','11n':'⛈️','13d':'❄️','13n':'❄️','50d':'🌫️','50n':'🌫️'
-  };
-
   const dias = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
 
-  async function buscarTempo(cidade) {
+  // Mapeia WMO weather codes para emoji + descrição
+  function wmoInfo(code) {
+    if (code === 0) return { icon: '☀️', desc: 'céu limpo' };
+    if (code <= 2) return { icon: '⛅', desc: 'parcialmente nublado' };
+    if (code === 3) return { icon: '☁️', desc: 'nublado' };
+    if (code <= 49) return { icon: '🌫️', desc: 'neblina' };
+    if (code <= 59) return { icon: '🌦️', desc: 'chuvisco' };
+    if (code <= 69) return { icon: '🌧️', desc: 'chuva' };
+    if (code <= 79) return { icon: '❄️', desc: 'neve' };
+    if (code <= 84) return { icon: '🌦️', desc: 'pancadas de chuva' };
+    if (code <= 94) return { icon: '⛈️', desc: 'tempestade' };
+    return { icon: '⛈️', desc: 'tempestade forte' };
+  }
+
+  async function geocodeCidade(cidade) {
+    const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(cidade)}&count=1&language=pt&format=json`;
+    const res = await fetch(url);
+    const data = await res.json();
+    if (!data.results || data.results.length === 0) throw new Error('Cidade não encontrada');
+    return data.results[0];
+  }
+
+  async function buscarTempoPorCoord(lat, lon, nome, pais) {
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=auto&forecast_days=5`;
+    const res = await fetch(url);
+    const data = await res.json();
+    mostrarClima(data, nome, pais);
+    mostrarPrevisao(data);
+    const info = wmoInfo(data.current.weather_code);
+    falarTempo(`Em ${nome}, ${Math.round(data.current.temperature_2m)} graus, ${info.desc}`);
+  }
+
+  async function buscarTempo() {
     const input = document.getElementById('cityInput');
-    const q = cidade || input.value.trim();
+    const q = input.value.trim();
     if (!q) { mostrarErro('Digite o nome de uma cidade.'); return; }
-
     mostrarStatus('⏳ Buscando...');
-
     try {
-      // Clima atual
-      const res = await fetch(`https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(q)}&appid=${API_KEY}&units=metric&lang=pt_br`);
-      if (!res.ok) { mostrarErro('Cidade não encontrada. Tente novamente.'); return; }
-      const data = await res.json();
-      mostrarClima(data);
-
-      // Previsão 5 dias
-      const res2 = await fetch(`https://api.openweathermap.org/data/2.5/forecast?q=${encodeURIComponent(q)}&appid=${API_KEY}&units=metric&lang=pt_br`);
-      const data2 = await res2.json();
-      mostrarPrevisao(data2);
-
-      // Falar resultado
-      const temp = Math.round(data.main.temp);
-      const desc = data.weather[0].description;
-      falarTempo(`Em ${data.name}, ${temp} graus, ${desc}`);
-
+      const geo = await geocodeCidade(q);
+      await buscarTempoPorCoord(geo.latitude, geo.longitude, geo.name, geo.country_code || '');
     } catch(e) {
-      mostrarErro('Erro de conexão. Verifique a internet.');
+      mostrarErro(e.message || 'Erro ao buscar clima.');
     }
   }
 
@@ -189,35 +193,38 @@
     navigator.geolocation.getCurrentPosition(async (pos) => {
       const { latitude, longitude } = pos.coords;
       try {
-        const res = await fetch(`https://api.openweathermap.org/data/2.5/weather?lat=${latitude}&lon=${longitude}&appid=${API_KEY}&units=metric&lang=pt_br`);
-        const data = await res.json();
-        document.getElementById('cityInput').value = data.name;
-        mostrarClima(data);
-
-        const res2 = await fetch(`https://api.openweathermap.org/data/2.5/forecast?lat=${latitude}&lon=${longitude}&appid=${API_KEY}&units=metric&lang=pt_br`);
-        const data2 = await res2.json();
-        mostrarPrevisao(data2);
-
-        falarTempo(`Aqui em ${data.name}, ${Math.round(data.main.temp)} graus, ${data.weather[0].description}`);
-      } catch(e) { mostrarErro('Erro ao buscar clima.'); }
+        // Reverse geocoding via Open-Meteo geocoding (busca pelo nome mais próximo)
+        const geoRes = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json&accept-language=pt`);
+        const geoData = await geoRes.json();
+        const nome = geoData.address.city || geoData.address.town || geoData.address.village || 'Sua localização';
+        const pais = geoData.address.country_code?.toUpperCase() || '';
+        document.getElementById('cityInput').value = nome;
+        await buscarTempoPorCoord(latitude, longitude, nome, pais);
+      } catch(e) {
+        mostrarErro('Erro ao buscar clima da localização.');
+      }
     }, () => mostrarErro('Permita o acesso ao GPS.'));
   }
 
-  function mostrarClima(data) {
+  function mostrarClima(data, nome, pais) {
     document.getElementById('statusMsg').style.display = 'none';
     const main = document.getElementById('weatherMain');
     main.style.display = 'block';
 
-    document.getElementById('wCity').textContent = data.name;
-    document.getElementById('wCountry').textContent = data.sys.country;
-    document.getElementById('wIcon').textContent = weatherIcons[data.weather[0].icon] || '🌡️';
-    document.getElementById('wTemp').textContent = Math.round(data.main.temp) + '°C';
-    document.getElementById('wDesc').textContent = data.weather[0].description;
-    document.getElementById('wHumidity').textContent = data.main.humidity + '%';
-    document.getElementById('wWind').textContent = Math.round(data.wind.speed * 3.6) + ' km/h';
-    document.getElementById('wFeels').textContent = Math.round(data.main.feels_like) + '°C';
-    document.getElementById('wMin').textContent = Math.round(data.main.temp_min) + '°C';
-    document.getElementById('wMax').textContent = Math.round(data.main.temp_max) + '°C';
+    const cur = data.current;
+    const info = wmoInfo(cur.weather_code);
+    const daily = data.daily;
+
+    document.getElementById('wCity').textContent = nome;
+    document.getElementById('wCountry').textContent = pais;
+    document.getElementById('wIcon').textContent = info.icon;
+    document.getElementById('wTemp').textContent = Math.round(cur.temperature_2m) + '°C';
+    document.getElementById('wDesc').textContent = info.desc;
+    document.getElementById('wHumidity').textContent = cur.relative_humidity_2m + '%';
+    document.getElementById('wWind').textContent = Math.round(cur.wind_speed_10m) + ' km/h';
+    document.getElementById('wFeels').textContent = Math.round(cur.apparent_temperature) + '°C';
+    document.getElementById('wMin').textContent = Math.round(daily.temperature_2m_min[0]) + '°C';
+    document.getElementById('wMax').textContent = Math.round(daily.temperature_2m_max[0]) + '°C';
   }
 
   function mostrarPrevisao(data) {
@@ -227,25 +234,21 @@
     title.style.display = 'block';
     grid.innerHTML = '';
 
-    // Pega um item por dia (ao meio-dia)
-    const porDia = {};
-    data.list.forEach(item => {
-      const d = item.dt_txt.split(' ')[0];
-      if (!porDia[d]) porDia[d] = item;
-    });
-
-    Object.values(porDia).slice(0, 5).forEach(item => {
-      const date = new Date(item.dt * 1000);
+    const daily = data.daily;
+    for (let i = 0; i < Math.min(5, daily.time.length); i++) {
+      const date = new Date(daily.time[i] + 'T12:00:00');
+      const info = wmoInfo(daily.weather_code[i]);
       const card = document.createElement('div');
       card.className = 'forecast-card';
       card.innerHTML = `
         <div class="forecast-day">${dias[date.getDay()]}</div>
-        <span class="forecast-icon">${weatherIcons[item.weather[0].icon] || '🌡️'}</span>
-        <div class="forecast-temp">${Math.round(item.main.temp)}°C</div>
-        <div class="forecast-min">${item.weather[0].description}</div>
+        <span class="forecast-icon">${info.icon}</span>
+        <div class="forecast-temp">${Math.round(daily.temperature_2m_max[i])}°C</div>
+        <div class="forecast-min">mín ${Math.round(daily.temperature_2m_min[i])}°C</div>
+        <div class="forecast-min" style="margin-top:4px;font-size:11px">${info.desc}</div>
       `;
       grid.appendChild(card);
-    });
+    }
   }
 
   function mostrarStatus(msg) {
